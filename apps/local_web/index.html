@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Local static web UI helper for EditAI."""
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+INDEX = ROOT / "index.html"
+INDEX.write_text(
+    """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EditAI local studio</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #0f172a; color: #e5e7eb; }
+    .stack { display: grid; gap: 1rem; max-width: 720px; }
+    .card { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 1rem; }
+    label { display: block; margin-top: 0.75rem; font-size: 0.9rem; }
+    input, button { width: 100%; box-sizing: border-box; margin-top: 0.4rem; }
+    button { padding: 0.75rem; border: none; border-radius: 8px; background: #2563eb; color: white; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+    <div class="card">
+      <h1>EditAI local studio</h1>
+      <p>Offline-only, local-first workspace for conventional photo projects.</p>
+    </div>
+    <div class="card">
+      <h2>Create project</h2>
+      <label>Project name<input id="projectName" /></label>
+      <label>Title<input id="projectTitle" /></label>
+      <button onclick="createProject()">Create</button>
+      <pre id="createOutput"></pre>
+    </div>
+    <div class="card">
+      <h2>Add photo</h2>
+      <label>Project<input id="addProject" /></label>
+      <label>Image path<input id="imgPath" /></label>
+      <label>Seconds<input id="imgSeconds" type="number" value="4" /></label>
+      <button onclick="addPhoto()">Add photo</button>
+      <pre id="addOutput"></pre>
+    </div>
+    <div class="card">
+      <h2>Open project</h2>
+      <label>Project<input id="openProject" /></label>
+      <button onclick="openProject()">Open</button>
+      <pre id="openOutput"></pre>
+    </div>
+  </div>
+  <script>
+    const api = '/api';
+    async function call(url, payload) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const text = await response.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch (error) { data = { raw: text }; }
+      if (!response.ok) {
+        throw new Error(data.error || 'request failed');
+      }
+      return data;
+    }
+    async function createProject() {
+      const result = await call(api + '/projects', {
+        name: document.getElementById('projectName').value,
+        title: document.getElementById('projectTitle').value
+      });
+      document.getElementById('createOutput').textContent = JSON.stringify(result, null, 2);
+    }
+    async function addPhoto() {
+      const result = await call(api + '/projects/' + document.getElementById('addProject').value + '/assets', {
+        source_path: document.getElementById('imgPath').value,
+        seconds: Number(document.getElementById('imgSeconds').value)
+      });
+      document.getElementById('addOutput').textContent = JSON.stringify(result, null, 2);
+    }
+    async function openProject() {
+      const project = document.getElementById('openProject').value;
+      const response = await fetch(api + '/projects/' + project);
+      const data = await response.json();
+      document.getElementById('openOutput').textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>
+""",
+    encoding="utf-8",
+)
+print(f"Static HTML created at: {INDEX}")
