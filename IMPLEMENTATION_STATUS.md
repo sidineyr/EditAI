@@ -1,27 +1,39 @@
 # EditAI implementation status
 
-**Overall: incomplete early implementation; not a complete product or validated release.**
+**Overall: early implementation, not a release.**
 
 ## Implemented in source
 
-- Python worker diagnostics and machine-readable capability listing.
-- Portable project manifest v1, copied photos, relative paths, content hashes, and scene validation.
-- Conventional one-photo pan/zoom MP4 and photo montage with optional audio using external FFmpeg.
-- Scene duration/approval editing and portable ZIP export/import, including selected-scene export, path traversal checks, size/member limits, and hash validation.
-- Unit tests are present but were not executed in this session.
+- Portable project and asset integrity helpers.
+- Project archive import/export with protections against path traversal and oversized payloads.
+- Local storyboard metadata and prompt editing.
+- Loopback-only local web UI for creating and populating projects.
+- Benchmark CLI that records measured local execution data in JSON.
+- Contribution, security, and agent policy files.
 
 ## Not implemented
 
-Flutter application/interface, Android native Media3 integration, drawing canvas and animated strokes, full timeline/video editor, subtitle and color tools, neural image/conditioning/segmentation/transcription/video adapters, agent, model manager, protected companion mode, installers, SBOM, and cross-platform packages.
+- Full Flutter application.
+- Native Android editing/export.
+- Real drawing canvas and timeline editor.
+- Generative AI adapters with license verification and real inference tests.
+- Companion mode and production packaging.
 
-## Capability evidence distinctions
+## Evidence distinctions
 
-| Capability | Source implementation | External dependency | Hardware compatibility | Validated here |
-| --- | --- | --- | --- | --- |
-| Portable project and ZIP exchange | Yes | Python standard library | Not applicable | No; tests not run |
-| Still-photo pan/zoom | Yes | FFmpeg and compatible H.264 encoder | Not assessed | No render run |
-| Photo montage with optional audio | Yes | FFmpeg, H.264 and AAC support | Not assessed | No render run |
-| AI generation/conditioning | No | None | Not assessed | No |
-| Android app/export | No | None | Not assessed | No |
+| Capability | Source implementation | External dependency | Validated here |
+| --- | --- | --- | --- |
+| Portable project metadata | Yes | Python stdlib | Partial source-only status |
+| Archive safety checks | Yes | Python stdlib | Source-only |
+| Storyboard metadata | Yes | Python stdlib | Source-only |
+| Local web UI | Yes | Python stdlib | Source-only |
+| Benchmark runner | Yes | Python stdlib | Source-only |
+| Android or Flutter build | No | None | Not executed |
+| Neural inference | No | None | Not executed |
 
-“Implemented” means a source path exists; it does not mean installed or validated on this device. Read `VALIDATION.md` for exact status.
+## Next priorities
+
+1. Add a more complete locally runnable project editor and gallery workflow.
+2. Add true FFmpeg-based validation with synthetic media probes and playback checks.
+3. Add a real desktop application shell or web editor interface with persisted actions.
+4. Add audited local model adapters only with genuine hardware validation.
