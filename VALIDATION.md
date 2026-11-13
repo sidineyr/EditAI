@@ -2,14 +2,23 @@
 
 ## Session evidence
 
-- Repository: `sidineyr/EditAI`; default branch was reported as `main` by GitHub API.
-- Repository metadata was inspected before the write. Existing repository size was reported as zero at that time.
-- Files in this commit provide source and unit tests for one FFmpeg-based still-image animation path.
-- No local shell, filesystem, device, or runtime is available through the repository-writing tool used for this change. Therefore no test, render, app launch, benchmark, offline network test, or platform build was executed in this session.
+The repository-writing environment reported GitHub repository metadata and accepted a source update. It did not expose a local shell, filesystem, FFmpeg runtime, compiler, emulator, or physical device. No machine specifications are asserted.
 
-## Commands for the maintainer to run
+## Present source paths
 
-From the repository root, with Python 3 installed:
+- Portable project create/add/validate helpers and scene asset integrity checking.
+- Still-image pan/zoom MP4 and photo-montage MP4 worker paths that require external FFmpeg.
+- Unit tests for project manifests, path escape rejection, content hash integrity, and input/output guards.
+
+## Not executed in this session
+
+- Python test suite; FFmpeg render or ffprobe inspection.
+- Flutter or Android build, app launch, emulator/physical-device run.
+- AI/model inference, benchmark, network-denied test, companion test, or signing.
+
+## Commands for local verification
+
+From repository root:
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -17,25 +26,26 @@ python3 services/local_worker/editai_worker.py diagnose
 python3 services/local_worker/editai_worker.py capabilities
 ```
 
-For an actual render, install FFmpeg through a trusted platform package source, then run with a locally owned image:
+For a real render, use a test image and an output path that does not exist:
 
 ```bash
-python3 services/local_worker/editai_worker.py photo-animation "input image.jpg" "output animation.mp4" --seconds 4 --fps 24
-ffprobe -v error -show_streams -show_format "output animation.mp4"
+python3 services/local_worker/editai_worker.py photo-animation "input image.jpg" "animation.mp4" --seconds 3 --fps 24
+ffprobe -v error -show_streams -show_format "animation.mp4"
 ```
 
-The commands above are instructions, not results from this session. Ensure the output path does not already exist. Check playback and inspect duration, dimensions, and frame rate.
+For project/montage acceptance, use two image files and an audio file supported by the installed FFmpeg codecs:
 
-## Results
+```bash
+python3 services/local_worker/editai_worker.py project create demo-project --title "Demo"
+python3 services/local_worker/editai_worker.py project add-photo demo-project "photo one.jpg" --seconds 2
+python3 services/local_worker/editai_worker.py project add-photo demo-project "photo two.jpg" --seconds 2
+python3 services/local_worker/editai_worker.py project validate demo-project
+python3 services/local_worker/editai_worker.py project render demo-project "demo.mp4" --audio "music.wav"
+ffprobe -v error -show_streams -show_format "demo.mp4"
+```
 
-- Unit tests: not executed.
-- FFmpeg render: not executed.
-- Playback/ffprobe inspection: not executed.
-- Application launch: not applicable; no UI exists yet.
-- Android build/device validation: not built or tested.
-- Linux/Windows/macOS build validation: not built or tested.
-- Model inference: not implemented or tested.
-- Quick benchmark: not implemented or run.
-- Offline egress test: not implemented or run.
+These are instructions, not results from this session. Successful export should be confirmed by decoding/playback and inspecting streams, duration, dimensions, and audio synchronization.
 
-No model revisions, binary artifacts, or release outputs were produced. This is an incomplete implementation, not a validated application release.
+## Explicit status
+
+No test pass, render success, benchmark number, model revision, packaged artifact, or supported-device validation is claimed. The product remains incomplete and the current source slice must be validated on the maintainer's machine before relying on it.

@@ -1,31 +1,27 @@
 # Critical review and mitigation record
 
-This initial review converts the three required adversarial perspectives into tracked engineering constraints. Tests listed below are planned unless explicitly reported as executed in `VALIDATION.md`.
+Review status: mitigations are partly implemented in source; tests and integration evidence have not been executed in this session. Read alongside `VALIDATION.md`.
 
 ## Economics and autonomy
 
-| Criticism | Mitigation in this slice | Test/evidence | Remaining limitation |
+| Criticism | Mitigation in source | Test/evidence | Remaining limitation |
 | --- | --- | --- | --- |
-| Export could depend on an account, credit balance, or paid backend. | The worker invokes a local FFmpeg executable; no account or remote inference is in this path. | Source review: `photo-animation` constructs a local subprocess invocation. Runtime/export not executed; future network-denied integration test required. | FFmpeg installation and codec availability are external; cross-platform packaging and licensing review remain. |
-| A nominally local project could be trapped in a vendor format. | The initial operation emits conventional MP4; no proprietary project format exists yet. | Output is intended for ordinary media players; no rendered file was produced in this session. | Portable editable project format and save/reopen are not implemented. |
+| Export could depend on an account, credit balance, or paid backend. | Conventional worker paths use a local FFmpeg process; no account or remote inference is part of these operations. | Source review only; render not executed. | User must install FFmpeg and compatible codecs; licensing and distribution are not audited. |
+| Project interchange could be tied to a vendor. | Project v1 is JSON with relative copied assets and content hashes; exports are ordinary MP4. | Unit coverage is present, unexecuted. | Schema migration, archive export/import, project UI, and recovery are absent. |
 
 ## Privacy and control
 
-| Criticism | Mitigation in this slice | Test/evidence | Remaining limitation |
+| Criticism | Mitigation in source | Test/evidence | Remaining limitation |
 | --- | --- | --- | --- |
-| Media could be uploaded or silently sent to a service. | Worker source has no network client or fetch operation; diagnostics only inspect local executables. | Source inspection only; network-denied execution not run. | This does not sandbox FFmpeg or unrelated processes, nor prove whole-device egress control. |
-| Outputs could overwrite originals or existing work. | Rejects same input/output path and existing destination; attempts to remove a partial output after failed render. | Unit tests are present but were not executed. | Filesystem races and platform-specific permission behavior need integration testing. |
-| Opaque agent actions could execute arbitrary commands. | This slice has no agent interface; FFmpeg arguments are passed as a list, without shell interpolation. | Source inspection; no dynamic/security testing run. | No user approval UI, media sandbox, or agent tool registry exists yet. |
+| Media may be uploaded or silently sent away. | This worker contains no network client or model fetcher. | Source review only; OS network isolation not tested. | It does not sandbox FFmpeg or unrelated processes. |
+| Inputs or existing outputs may be overwritten. | Inputs are copied into project assets; render uses a private temporary file and checks destination before publish. | Unit guards exist but not run. | Cross-platform concurrent-write behavior still needs integration testing; no promise of crash-proof storage on every filesystem. |
+| A malformed project may reference files outside its directory. | Manifest size/count bounds, relative resolution, path containment, and SHA-256 verification are implemented. | Path traversal and tampering tests are present but unexecuted. | Malformed media decoding still depends on external FFmpeg hardening; resource limits need more tests. |
 
-## Repairability, reproducibility, and honest capability
+## Repairability, reproducibility, and capability honesty
 
-| Criticism | Mitigation in this slice | Test/evidence | Remaining limitation |
+| Criticism | Mitigation in source | Test/evidence | Remaining limitation |
 | --- | --- | --- | --- |
-| “Pan/zoom” could be marketed as AI video generation. | Registry and README explicitly mark the operation conventional and `neural: false`. | Registry source and user-facing status text. | No neural adapter exists. |
-| External tools, codecs, or hardware may not be available. | Diagnostics report Python, platform, FFmpeg and ffprobe presence/version; missing FFmpeg is an explicit render error. | Code path present; diagnostic was not run here. | No automated installer, codec compatibility matrix, GPU capability detection, or packaging yet. |
-| Tests or mock output could be reported as a successful render. | Validation states tests and actual rendering were not run; tests are unit checks, not render acceptance. | `VALIDATION.md` records session limits. | Tests must be executed in an environment with Python; a real fixture render and decoded-output checks remain release blockers. |
-| License terms can be assumed from a free download. | No model weights or model runtimes are included in this slice. FFmpeg's license/codec status is explicitly left unverified. | Documentation and capability metadata. | A complete project license and third-party audit are still required before distribution. |
-
-## Review conclusion
-
-This slice is intentionally narrow. Its existence does not satisfy the full implementation prompt. Continue only with observable operations, explicit dependencies, meaningful tests, and a status record that distinguishes source presence from installed, hardware-compatible, and validated capabilities.
+| Conventional pan/zoom or montage could be misrepresented as neural video. | Capability registry and docs mark both paths non-neural. | Source/doc review. | No neural adapter exists. |
+| Open source/local does not guarantee easy setup, reproducibility, or affordability. | No Python package setup is needed for current helper commands; dependency requirement is disclosed; failure path says to install FFmpeg explicitly. | No install/runtime testing performed. | Binary packaging, codec compatibility, and cross-platform toolchain validation remain. |
+| Unit or mock tests could be presented as real exports. | Validation explicitly says the tests/render were not run and commands are instructions only. | `VALIDATION.md`. | Must run real tests, render, decode, and playback before claims. |
+| Optional model licensing could be assumed from runtime licensing. | No model weights or AI runtime are included in this slice. | Source/docs. | Model catalog and license audit remain future work; no AI claims are supported. |

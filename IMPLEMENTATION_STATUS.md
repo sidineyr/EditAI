@@ -1,24 +1,33 @@
 # EditAI implementation status
 
-**Overall: early implementation slice; incomplete and not release-ready.** This status is limited to the source files committed with this change. It is not a claim that the full attached product specification has been implemented.
+**Overall: incomplete early implementation. Not a release or complete product.**
 
-## Present in source
+## Implemented in source
 
-- A Python worker CLI with `capabilities`, `diagnose`, and `photo-animation` commands.
-- One conventional single-image pan/zoom render path using an externally installed FFmpeg executable.
-- Structured argument invocation, duration/FPS bounds, no-overwrite protection, and cleanup of failed partial output.
-- Four unit tests for registry labeling and input/output guardrails.
-- README run instructions and an explicit limitations section.
+- Python standard-library worker commands for capability listing and local diagnostics.
+- Portable project manifest v1, copied photo assets, relative references, integrity hashes, scene durations, project validation, and montage rendering via FFmpeg.
+- Conventional one-photo pan/zoom MP4 rendering via FFmpeg.
+- Structured process arguments, duration/frame-rate limits, non-neural labeling, and no-intended-overwrite output handling.
+- Unit tests are present for validation and project integrity; they were not run in this session.
 
 ## Not implemented
 
-Flutter application/UI, Android application or native Media3 integration, project schema and save/reopen, sketch/montage/video editing, AI/model manager/inference, companion pairing, installer/package artifacts, localization, and the broader acceptance/benchmark suite.
+Flutter application/interface, Android native Media3 integration, drawing canvas and animated strokes, full timeline and editing controls, video editing/color/subtitle tools, neural image/conditioning/segmentation/transcription/video adapters, agent, model manager, protected companion mode, installers, SBOM, and cross-platform packaging.
 
-## Capability status distinctions
+## Capability evidence distinctions
 
-| Operation | Implemented | Installed | Hardware-compatible | Validated on this device |
+| Capability | Source implementation | Dependency available | Hardware compatibility | Validated here |
 | --- | --- | --- | --- | --- |
-| Still image pan/zoom MP4 | Source path present | Requires user-installed FFmpeg | Not assessed | No |
-| Neural generation/conditioning | No | No | Not assessed | No |
+| Project manifest v1 with photo assets | Yes | Python standard library | Not applicable | No; tests not run |
+| Still-photo pan/zoom MP4 | Yes | FFmpeg required | Not assessed | No render run |
+| Photo montage with optional audio | Yes | FFmpeg and codecs required | Not assessed | No render run |
+| AI generation/conditioning | No | No | Not assessed | No |
+| Android app/export | No | No | Not assessed | No |
 
-“Implemented” denotes a code path in source, not a successful render or tested release. See `VALIDATION.md` for evidence status.
+## Next priorities
+
+1. Run tests and validate real rendered outputs on a known environment.
+2. Add deterministic fixtures and robust media probe/output validation.
+3. Implement usable Flutter project UI and schema migration/recovery.
+4. Add independent native Android editing/export.
+5. Add optional, license-audited local AI adapters only with genuine inference tests.
