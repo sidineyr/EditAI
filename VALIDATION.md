@@ -1,38 +1,46 @@
-# EditAI validation record
+import importlib.util
+import tempfile
+import unittest
+from pathlib import Path
 
-## Current status
+PROJECT = Path(__file__).parents[1] / "services/local_worker/project.py"
+SPEC_PROJECT = importlib.util.spec_from_file_location("editai_project", PROJECT)
+project = importlib.util.module_from_spec(SPEC_PROJECT)
+assert SPEC_PROJECT and SPEC_PROJECT.loader
+SPEC_PROJECT.loader.exec_module(project)
 
-This repository contains a small but real local-first slice for project portability, scene metadata, storyboard summary, and a local web UI that binds to loopback by default. The implementation remains incomplete and not a validated product release.
+TIMELINE = Path(__file__).parents[1] / "services/local_worker/timeline.py"
+SPEC_TIMELINE = importlib.util.spec_from_file_location("editai_timeline", TIMELINE)
+timeline = importlib.util.module_from_spec(SPEC_TIMELINE)
+assert SPEC_TIMELINE and SPEC_TIMELINE.loader
+SPEC_TIMELINE.loader.exec_module(timeline)
 
-## What is implemented
 
-- Portable project manifest with copy-on-import asset handling, integrity hashes, and scene metadata.
-- Scene duration and approval editing.
-- Project archive export/import with traversal and size protections.
-- Local storyboard metadata generation.
-- Local web UI with loopback-only default binding and explicit opt-in for LAN exposure.
-- Benchmark CLI that measures representative local operations and writes JSON output.
-- Contribution, security, and agent policy documents.
+class TimelineTests(unittest.TestCase):
+    def test_build_timeline_sets_scene_starts_and_ends(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "demo-project"
+            source = Path(directory) / "scene.png"
+            source.write_bytes(b"fixture")
+            project.create_project(root, "Demo")
+            project.add_photo(root, source, 2.0)
+            payload = timeline.build_timeline(root)
+            self.assertEqual(payload["project_title"], "Demo")
+            self.assertEqual(payload["total_duration_seconds"], 2.0)
+            self.assertEqual(payload["timeline"][0]["duration_seconds"], 2.0)
+            self.assertEqual(payload["timeline"][0]["end_seconds"], 2.0)
 
-## What remains unimplemented or not validated here
+    def test_validate_timeline_accepts_valid_sequence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "demo-project"
+            source = Path(directory) / "scene.png"
+            source.write_bytes(b"fixture")
+            project.create_project(root, "Demo")
+            project.add_photo(root, source, 4.0)
+            result = timeline.validate_timeline(root)
+            self.assertTrue(result["valid"])
+            self.assertEqual(result["problems"], [])
 
-- Flutter UI and Android app.
-- Native Media3 Android export.
-- Drawing canvas, timeline editing, and timeline transitions.
-- Real neural image/video generation or conditioning adapters.
-- Physical-device validation, emulator execution, and actual benchmark runs in this environment.
 
-## Local verification commands
-
-From the repository root:
-
-```bash
-python3 -m unittest discover -s tests -v
-python3 services/local_worker/editai_worker.py diagnose
-python3 services/local_worker/editai_worker.py capabilities
-python3 services/local_worker/benchmark.py --kind project --runs 1
-```
-
-## Explicit status
-
-No claim is made that the application is complete, installed, or release-ready. These files define a working local slice and honest next steps, not a complete product.
+if __name__ == "__main__":
+    unittest.main()

@@ -1,39 +1,39 @@
-# EditAI implementation status
+# EditAI validation record
 
-**Overall: early implementation, not a release.**
+## Current status
 
-## Implemented in source
+This repository contains a small but real local-first slice for project portability, scene metadata, storyboard summary, timeline modeling, and local worker validation. The implementation remains incomplete and not a validated product release.
 
-- Portable project and asset integrity helpers.
-- Project archive import/export with protections against path traversal and oversized payloads.
-- Local storyboard metadata and prompt editing.
-- Loopback-only local web UI for creating and populating projects.
-- Benchmark CLI that records measured local execution data in JSON.
-- Contribution, security, and agent policy files.
+## What is implemented
 
-## Not implemented
+- Portable project manifest with asset integrity hashes and scene metadata.
+- Safe archive import/export with traversal protections and bounded payloads.
+- Storyboard metadata generation and scene prompt editing.
+- Timeline model for project scenes with start/end offsets and validation.
+- FFmpeg validation helper that can render a synthetic file and inspect stream metadata when FFmpeg/ffprobe are installed.
+- Loopback-only default web UI for local project creation and photo ingestion.
+- Benchmark CLI for local operations.
 
-- Full Flutter application.
-- Native Android editing/export.
-- Real drawing canvas and timeline editor.
-- Generative AI adapters with license verification and real inference tests.
-- Companion mode and production packaging.
+## What remains unimplemented or not validated here
 
-## Evidence distinctions
+- Flutter UI and Android app.
+- Native Media3 Android export.
+- Drawing canvas and full timeline editor UI.
+- Real neural image/video generation or conditioning adapters.
+- Physical-device validation, emulator execution, and full render benchmarks in this environment.
 
-| Capability | Source implementation | External dependency | Validated here |
-| --- | --- | --- | --- |
-| Portable project metadata | Yes | Python stdlib | Partial source-only status |
-| Archive safety checks | Yes | Python stdlib | Source-only |
-| Storyboard metadata | Yes | Python stdlib | Source-only |
-| Local web UI | Yes | Python stdlib | Source-only |
-| Benchmark runner | Yes | Python stdlib | Source-only |
-| Android or Flutter build | No | None | Not executed |
-| Neural inference | No | None | Not executed |
+## Local verification commands
 
-## Next priorities
+From the repository root:
 
-1. Add a more complete locally runnable project editor and gallery workflow.
-2. Add true FFmpeg-based validation with synthetic media probes and playback checks.
-3. Add a real desktop application shell or web editor interface with persisted actions.
-4. Add audited local model adapters only with genuine hardware validation.
+```bash
+python3 -m unittest discover -s tests -v
+python3 services/local_worker/editai_worker.py diagnose
+python3 services/local_worker/editai_worker.py capabilities
+python3 services/local_worker/benchmark.py --kind project --runs 1
+python3 services/local_worker/ffmpeg_validate.py --output-dir benchmarks/ffmpeg_validation
+```
+
+## Explicit status
+
+No claim is made that the application is complete, installed, or release-ready. These files define a working local slice and honest next steps, not a complete product.
