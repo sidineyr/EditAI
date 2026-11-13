@@ -9,12 +9,17 @@ import os
 import re
 import shutil
 import tempfile
-from pathlib import Path
+import zipfile
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 SCHEMA_VERSION = 1
 MAX_PROJECT_BYTES = 2 * 1024 * 1024
 MAX_ASSETS = 500
+MAX_ARCHIVE_MEMBERS = MAX_ASSETS + 1
+MAX_ARCHIVE_UNCOMPRESSED = 1024 * 1024 * 1024
+MAX_ARCHIVE_FILE = 1100 * 1024 * 1024
+MAX_MEMBER_SIZE = 512 * 1024 * 1024
 
 
 def sha256_file(path: Path) -> str:
@@ -85,11 +90,9 @@ def load_project(root: Path, verify_hashes: bool = True) -> dict[str, Any]:
     for asset in data["assets"]:
         if not isinstance(asset, dict):
             raise ValueError("Invalid asset entry")
-        asset_id = asset.get("id")
-        rel = asset.get("path")
-        expected = asset.get("sha256")
-        if not isinstance(asset_id, str) or asset_id in asset_ids:
-            raise ValueError("Missing or duplicate asset ID")
+        asset_id, rel, expected = asset.get("id"), asset.get("path"), asset.get("sha256")
+        if not isinstance(asset_id, str) or not re.fullmatch(r"[a-f0-9]{16}", asset_id) or asset_id in asset_ids:
+            raise ValueError("Missing, invalid, or duplicate asset ID")
         asset_ids.add(asset_id)
         if not isinstance(rel, str) or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
             raise ValueError("Invalid asset path or SHA-256")
@@ -98,12 +101,19 @@ def load_project(root: Path, verify_hashes: bool = True) -> dict[str, Any]:
             raise ValueError("Asset path escapes project directory or is not a regular file")
         if verify_hashes and sha256_file(candidate) != expected:
             raise ValueError(f"Asset integrity check failed: {asset_id}")
+    scene_ids: set[str] = set()
     for scene in data["scenes"]:
         if not isinstance(scene, dict) or scene.get("asset_id") not in asset_ids:
             raise ValueError("Scene references a missing asset")
+        scene_id = scene.get("id")
+        if not isinstance(scene_id, str) or not scene_id or scene_id in scene_ids:
+            raise ValueError("Missing or duplicate scene ID")
+        scene_ids.add(scene_id)
         duration = scene.get("duration_seconds")
-        if not isinstance(duration, (int, float)) or not 0.1 <= duration <= 120:
+        if isinstance(duration, bool) or not isinstance(duration, (int, float)) or not 0.1 <= duration <= 120:
             raise ValueError("Scene duration must be between 0.1 and 120 seconds")
+        if "approved" in scene and not isinstance(scene["approved"], bool):
+            raise ValueError("Scene approval must be a boolean")
     return data
 
 
@@ -113,6 +123,7 @@ def add_photo(root: Path, source: Path, duration: float = 4.0) -> dict[str, Any]
     source = source.expanduser().resolve(strict=True)
     if not source.is_file():
         raise ValueError("Photo source must be a regular file")
+    root = root.expanduser().resolve(strict=True)
     data = load_project(root)
     if len(data["assets"]) >= MAX_ASSETS:
         raise ValueError("Project asset limit reached")
@@ -124,14 +135,42 @@ def add_photo(root: Path, source: Path, duration: float = 4.0) -> dict[str, Any]
     if len(suffix) > 12 or not re.fullmatch(r"\.[a-z0-9]+", suffix or ""):
         suffix = ".bin"
     filename = f"{asset_id}{suffix}"
-    destination = (Path(root).resolve() / "assets" / filename)
+    destination = root / "assets" / filename
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
     asset = {"id": asset_id, "path": f"assets/{filename}", "sha256": digest, "kind": "image"}
     data["assets"].append(asset)
     data["scenes"].append({"id": f"scene-{len(data['scenes']) + 1}", "asset_id": asset_id, "duration_seconds": float(duration), "approved": False})
-    _atomic_json(_project_file(Path(root).resolve()), data)
+    try:
+        _atomic_json(_project_file(root), data)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
     return asset
+
+
+def set_scene_duration(root: Path, scene_id: str, duration: float) -> None:
+    if not 0.1 <= duration <= 120:
+        raise ValueError("duration must be between 0.1 and 120 seconds")
+    root = root.expanduser().resolve(strict=True)
+    data = load_project(root)
+    scene = next((item for item in data["scenes"] if item["id"] == scene_id), None)
+    if scene is None:
+        raise ValueError(f"Unknown scene: {scene_id}")
+    scene["duration_seconds"] = float(duration)
+    _atomic_json(_project_file(root), data)
+
+
+def set_scene_approval(root: Path, scene_id: str, approved: bool) -> None:
+    if not isinstance(approved, bool):
+        raise ValueError("approved must be true or false")
+    root = root.expanduser().resolve(strict=True)
+    data = load_project(root)
+    scene = next((item for item in data["scenes"] if item["id"] == scene_id), None)
+    if scene is None:
+        raise ValueError(f"Unknown scene: {scene_id}")
+    scene["approved"] = approved
+    _atomic_json(_project_file(root), data)
 
 
 def project_scene_paths(root: Path) -> list[tuple[Path, float]]:
@@ -139,3 +178,108 @@ def project_scene_paths(root: Path) -> list[tuple[Path, float]]:
     data = load_project(root)
     assets = {asset["id"]: asset for asset in data["assets"]}
     return [(root / assets[scene["asset_id"]]["path"], float(scene["duration_seconds"])) for scene in data["scenes"]]
+
+
+def _safe_archive_name(name: str) -> PurePosixPath:
+    if "\\" in name or "\x00" in name:
+        raise ValueError("Archive contains an invalid path")
+    path = PurePosixPath(name)
+    if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        raise ValueError("Archive path traversal is not allowed")
+    if name != "project.json" and not (len(path.parts) == 2 and path.parts[0] == "assets"):
+        raise ValueError("Archive contains an unsupported file path")
+    return path
+
+
+def export_project_archive(root: Path, destination: Path, scene_ids: set[str] | None = None) -> Path:
+    root = root.expanduser().resolve(strict=True)
+    data = load_project(root)
+    if scene_ids is not None:
+        if not scene_ids or any(not isinstance(item, str) for item in scene_ids):
+            raise ValueError("Select at least one valid scene ID")
+        scenes = [scene for scene in data["scenes"] if scene["id"] in scene_ids]
+        if len(scenes) != len(scene_ids):
+            raise ValueError("One or more selected scene IDs do not exist")
+        used = {scene["asset_id"] for scene in scenes}
+        data["scenes"] = scenes
+        data["assets"] = [asset for asset in data["assets"] if asset["id"] in used]
+    destination = destination.expanduser().resolve()
+    if destination.exists() or destination == root or root in destination.parents:
+        raise FileExistsError("Archive output must be a new path outside the project")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=".editai-archive-", suffix=".zip", dir=destination.parent)
+    os.close(fd)
+    temporary = Path(temp_name)
+    try:
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+            archive.writestr("project.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+            for asset in data["assets"]:
+                archive.write(root / asset["path"], asset["path"])
+        # Atomic exclusive publication: hard-link fails if another writer created destination.
+        os.link(temporary, destination)
+        temporary.unlink()
+        return destination
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def import_project_archive(archive_path: Path, destination: Path) -> Path:
+    archive_path = archive_path.expanduser().resolve(strict=True)
+    destination = destination.expanduser().resolve()
+    if not archive_path.is_file() or archive_path.stat().st_size > MAX_ARCHIVE_FILE:
+        raise ValueError("Archive is not a regular file or exceeds the size limit")
+    if destination.exists() or destination == archive_path or archive_path in destination.parents:
+        raise FileExistsError("Import destination must be a new directory separate from the archive")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".editai-import-", dir=destination.parent))
+    try:
+        with zipfile.ZipFile(archive_path, "r") as bundle:
+            entries = bundle.infolist()
+            if not entries or len(entries) > MAX_ARCHIVE_MEMBERS:
+                raise ValueError("Archive member count is invalid")
+            seen: set[str] = set()
+            total = 0
+            for info in entries:
+                safe = _safe_archive_name(info.filename)
+                if info.is_dir() or info.filename in seen:
+                    raise ValueError("Directories and duplicate archive paths are not accepted")
+                seen.add(info.filename)
+                mode = (info.external_attr >> 16) & 0xFFFF
+                if mode and (mode & 0o170000) == 0o120000:
+                    raise ValueError("Symbolic links are not allowed in project archives")
+                if info.file_size < 0 or info.file_size > MAX_MEMBER_SIZE:
+                    raise ValueError("Archive member exceeds size limit")
+                total += info.file_size
+                if total > MAX_ARCHIVE_UNCOMPRESSED:
+                    raise ValueError("Archive expands beyond the configured size limit")
+                target = staging.joinpath(*safe.parts)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                copied = 0
+                with bundle.open(info, "r") as source, target.open("xb") as output:
+                    while True:
+                        chunk = source.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        copied += len(chunk)
+                        if copied > info.file_size or copied > MAX_MEMBER_SIZE:
+                            raise ValueError("Archive member expands beyond its declared size")
+                        output.write(chunk)
+                if copied != info.file_size:
+                    raise ValueError("Archive member size does not match its directory entry")
+        if "project.json" not in seen:
+            raise ValueError("Archive is missing project.json")
+        load_project(staging)
+        # Create destination exclusively; then move only the validated manifest and asset tree.
+        destination.mkdir()
+        try:
+            (destination / "assets").parent.mkdir(exist_ok=True)
+            if (staging / "assets").exists():
+                os.replace(staging / "assets", destination / "assets")
+            os.replace(staging / "project.json", destination / "project.json")
+        except Exception:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise
+        return destination
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)

@@ -1,27 +1,30 @@
 # Critical review and mitigation record
 
-Review status: mitigations are partly implemented in source; tests and integration evidence have not been executed in this session. Read alongside `VALIDATION.md`.
+This review tracks economics/autonomy, privacy/control, and repairability/reproducibility risks. Tests below are present or planned as stated; none were executed in this repository-writing session.
 
 ## Economics and autonomy
 
 | Criticism | Mitigation in source | Test/evidence | Remaining limitation |
 | --- | --- | --- | --- |
-| Export could depend on an account, credit balance, or paid backend. | Conventional worker paths use a local FFmpeg process; no account or remote inference is part of these operations. | Source review only; render not executed. | User must install FFmpeg and compatible codecs; licensing and distribution are not audited. |
-| Project interchange could be tied to a vendor. | Project v1 is JSON with relative copied assets and content hashes; exports are ordinary MP4. | Unit coverage is present, unexecuted. | Schema migration, archive export/import, project UI, and recovery are absent. |
+| Export could depend on an account, credit balance, or paid backend. | The conventional worker invokes a local FFmpeg process; project helpers use Python's standard library. No account or cloud inference is used. | Source review only; render not executed. | User installs FFmpeg/codecs. Their binaries and codec terms are not audited or packaged. |
+| Projects could be trapped in a vendor format. | Project v1 is JSON with relative assets; archive export/import is portable and output video is ordinary MP4. Selected scenes can be included in an archive. | Unit tests for bundle roundtrip exist but were not run. | No migration tooling beyond schema v1; no GUI/project recovery flow. |
 
 ## Privacy and control
 
 | Criticism | Mitigation in source | Test/evidence | Remaining limitation |
 | --- | --- | --- | --- |
-| Media may be uploaded or silently sent away. | This worker contains no network client or model fetcher. | Source review only; OS network isolation not tested. | It does not sandbox FFmpeg or unrelated processes. |
-| Inputs or existing outputs may be overwritten. | Inputs are copied into project assets; render uses a private temporary file and checks destination before publish. | Unit guards exist but not run. | Cross-platform concurrent-write behavior still needs integration testing; no promise of crash-proof storage on every filesystem. |
-| A malformed project may reference files outside its directory. | Manifest size/count bounds, relative resolution, path containment, and SHA-256 verification are implemented. | Path traversal and tampering tests are present but unexecuted. | Malformed media decoding still depends on external FFmpeg hardening; resource limits need more tests. |
+| Media could be silently uploaded. | No network client or model downloader is present in the worker or bundle helper. | Source inspection only; network-denied run not performed. | This does not sandbox FFmpeg or unrelated OS processes. |
+| Projects could overwrite user work or import hostile archive paths. | Existing destinations are refused. Import accepts only a manifest and `assets/<file>`, rejects traversal, symlinks, duplicate paths, oversized members, and excessive expansion; validates hashes/schema before creating destination. | Security-oriented unit tests are present but not run. | Resource limits do not substitute for hardened media decoders; filesystem behavior varies by OS. |
+| An edit could silently alter original media. | Photos are copied into project assets; scene timing/approval edits only update the manifest. | Source and unit coverage, not executed. | No undo/history UI or crash-recovery journal yet. |
 
-## Repairability, reproducibility, and capability honesty
+## Repairability and capability honesty
 
 | Criticism | Mitigation in source | Test/evidence | Remaining limitation |
 | --- | --- | --- | --- |
-| Conventional pan/zoom or montage could be misrepresented as neural video. | Capability registry and docs mark both paths non-neural. | Source/doc review. | No neural adapter exists. |
-| Open source/local does not guarantee easy setup, reproducibility, or affordability. | No Python package setup is needed for current helper commands; dependency requirement is disclosed; failure path says to install FFmpeg explicitly. | No install/runtime testing performed. | Binary packaging, codec compatibility, and cross-platform toolchain validation remain. |
-| Unit or mock tests could be presented as real exports. | Validation explicitly says the tests/render were not run and commands are instructions only. | `VALIDATION.md`. | Must run real tests, render, decode, and playback before claims. |
-| Optional model licensing could be assumed from runtime licensing. | No model weights or AI runtime are included in this slice. | Source/docs. | Model catalog and license audit remain future work; no AI claims are supported. |
+| Conventional pan/zoom/montage could be sold as neural video. | Capability registry and docs label these workflows non-neural. | Source/docs review. | Neural adapters do not exist. |
+| Local/open software can still be unusable or unmaintained. | Current project helpers require no third-party Python packages; FFmpeg is explicitly an external requirement. | No installation or platform run performed. | No binary packaging, dependency compatibility matrix, or desktop/Android UI. |
+| A test/mocked result could be presented as a real render. | Validation states tests and renders were not run; commands are instructions, not results. | `VALIDATION.md`. | Must run real tests, render, decode, and playback before capability claims. |
+
+## Conclusion
+
+Continue by adding observable conventional workflows with constrained inputs and portable formats. Do not list features as released merely because their roadmap exists; report exact test and device evidence.
